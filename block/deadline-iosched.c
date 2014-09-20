@@ -103,13 +103,13 @@ deadline_add_request(struct request_queue *q, struct request *rq)
 	struct deadline_data *dd = q->elevator->elevator_data;
 	const int data_dir = rq_data_dir(rq);
 
-	deadline_add_rq_rb(dd, rq);
+	deadline_add_rq_rb(dd, rq); /* 把请求加入与的读/写方向对应的红黑树 */
 
 	/*
 	 * set expire time and add to fifo list
-	 */
+	 */  /* 记录请求的超时时间 */
 	rq_set_fifo_time(rq, jiffies + dd->fifo_expire[data_dir]);
-	list_add_tail(&rq->queuelist, &dd->fifo_list[data_dir]);
+	list_add_tail(&rq->queuelist, &dd->fifo_list[data_dir]); /* 添加请求到与请求读/写方向对应的FIFO队列 */
 }
 
 /*
@@ -241,7 +241,7 @@ static inline int deadline_check_fifo(struct deadline_data *dd, int ddir)
 /*
  * deadline_dispatch_requests selects the best request according to
  * read/write expire, fifo_batch, etc
- */
+ */  /* 根据读/写过期、批次、写饥饿选择一个最合适的请求 */
 static int deadline_dispatch_requests(struct request_queue *q, int force)
 {
 	struct deadline_data *dd = q->elevator->elevator_data;
@@ -252,12 +252,12 @@ static int deadline_dispatch_requests(struct request_queue *q, int force)
 
 	/*
 	 * batches are currently reads XOR writes
-	 */
+	 */  /* deadline_data的next_rq域指向被扇区编号增加的方向下一个请求的指针 */
 	if (dd->next_rq[WRITE])
 		rq = dd->next_rq[WRITE];
 	else
 		rq = dd->next_rq[READ];
-
+    /* 请求不为NULL, 并且该批次的请求数还未达到限制值， 则处理请求 */
 	if (rq && dd->batching < dd->fifo_batch)
 		/* we have a next request are still entitled to batch */
 		goto dispatch_request;
@@ -266,10 +266,10 @@ static int deadline_dispatch_requests(struct request_queue *q, int force)
 	 * at this point we are not running a batch. select the appropriate
 	 * data direction (read / write)
 	 */
-
+    /* 选择合适的读/写方向， 调度器优先处理读请求 */
 	if (reads) {
 		BUG_ON(RB_EMPTY_ROOT(&dd->sort_list[READ]));
-
+        /* 如果存在写请求，写请求饥饿计数加1， 如果写饥饿次数大于writes_starved域，表示写饥饿超标 */
 		if (writes && (dd->starved++ >= dd->writes_starved))
 			goto dispatch_writes;
 

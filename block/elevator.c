@@ -634,7 +634,7 @@ void elv_insert(struct request_queue *q, struct request *rq, int where)
 		rq->cmd_flags |= REQ_SORTED;
 		q->nr_sorted++;
 		if (rq_mergeable(rq)) {
-			elv_rqhash_add(q, rq);
+			elv_rqhash_add(q, rq);  /* 将请求添加到电梯算法队列的哈希链表，按照请求最后一个扇区编号进行hash */
 			if (!q->last_merge)
 				q->last_merge = rq;
 		}
@@ -643,8 +643,8 @@ void elv_insert(struct request_queue *q, struct request *rq, int where)
 		 * Some ioscheds (cfq) run q->request_fn directly, so
 		 * rq cannot be accessed after calling
 		 * elevator_add_req_fn.
-		 */
-		q->elevator->ops->elevator_add_req_fn(q, rq);
+		 */  /* 执行电梯类型特定的请求添加逻辑 */
+		q->elevator->ops->elevator_add_req_fn(q, rq);  /* deadline算法的回调为deadline_add_request */
 		break;
 
 	case ELEVATOR_INSERT_REQUEUE:

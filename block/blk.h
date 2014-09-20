@@ -56,14 +56,14 @@ static inline struct request *__elv_next_request(struct request_queue *q)
 	struct request *rq;
 
 	while (1) {
-		while (!list_empty(&q->queue_head)) {
+		while (!list_empty(&q->queue_head)) {  /* 当前派发队列不为空，则从派发队列头部获得请求 */
 			rq = list_entry_rq(q->queue_head.next);
 			if (blk_do_ordered(q, &rq))
 				return rq;
 		}
-
+        /* 如果派发队列为空，将从I/O调度队列转移请求道派发队列 */
 		if (test_bit(QUEUE_FLAG_DEAD, &q->queue_flags) ||
-		    !q->elevator->ops->elevator_dispatch_fn(q, 0))
+		    !q->elevator->ops->elevator_dispatch_fn(q, 0))  /* 对应deadline_dispatch_requests */
 			return NULL;
 	}
 }
@@ -100,7 +100,7 @@ struct io_context *current_io_context(gfp_t gfp_flags, int node);
 
 int ll_back_merge_fn(struct request_queue *q, struct request *req,
 		     struct bio *bio);
-int ll_front_merge_fn(struct request_queue *q, struct request *req, 
+int ll_front_merge_fn(struct request_queue *q, struct request *req,
 		      struct bio *bio);
 int attempt_back_merge(struct request_queue *q, struct request *rq);
 int attempt_front_merge(struct request_queue *q, struct request *rq);
