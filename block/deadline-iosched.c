@@ -286,7 +286,7 @@ static int deadline_dispatch_requests(struct request_queue *q, int force)
 dispatch_writes:
 		BUG_ON(RB_EMPTY_ROOT(&dd->sort_list[WRITE]));
 
-		dd->starved = 0;
+		dd->starved = 0;   /* 执行1次写就将写饥饿清0 */
 
 		data_dir = WRITE;
 
@@ -298,9 +298,9 @@ dispatch_writes:
 dispatch_find_request:
 	/*
 	 * we are not running a batch, find best request for selected data_dir
-	 */
+	 */ /* 检查FIFO的第一个请求，也就是最老的一个请求是否过期 */
 	if (deadline_check_fifo(dd, data_dir) || !dd->next_rq[data_dir]) {
-		/*
+		/* !dd->next_rq[data_dir]表示已经走到了最大扇区编号，将FIFO头部的请求作为下一个要处理的请求
 		 * A deadline has expired, the last request was in the other
 		 * direction, or we have run out of higher-sectored requests.
 		 * Start again from the request with the earliest expiry time.
@@ -310,7 +310,7 @@ dispatch_find_request:
 		/*
 		 * The last req was the same dir and we have a next request in
 		 * sort order. No expired requests so continue on from here.
-		 */
+		 */ /* 沿扇区号递增方向上的下一个请求就是下一个要处理的请求 */
 		rq = dd->next_rq[data_dir];
 	}
 
@@ -320,8 +320,8 @@ dispatch_request:
 	/*
 	 * rq is the selected appropriate request.
 	 */
-	dd->batching++;
-	deadline_move_request(dd, rq);
+	dd->batching++;  /* 找到要处理的请求后，递增批次计数 */
+	deadline_move_request(dd, rq); /* 将请求冲最后期限I/O调度队列转移到派发队列中 */
 
 	return 1;
 }

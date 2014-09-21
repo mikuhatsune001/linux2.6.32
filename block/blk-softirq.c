@@ -23,15 +23,15 @@ static void blk_done_softirq(struct softirq_action *h)
 
 	local_irq_disable();
 	cpu_list = &__get_cpu_var(blk_cpu_done);
-	list_replace_init(cpu_list, &local_list);
+	list_replace_init(cpu_list, &local_list);  /* 将CPU已完成请求链表中所有项转移到局部链表 */
 	local_irq_enable();
 
-	while (!list_empty(&local_list)) {
+	while (!list_empty(&local_list)) {  /* 循环处理每个项，将其充链表中删除 */
 		struct request *rq;
 
 		rq = list_entry(local_list.next, struct request, csd.list);
 		list_del_init(&rq->csd.list);
-		rq->q->softirq_done_fn(rq);
+		rq->q->softirq_done_fn(rq);  /* 调用请求队列的软中断完成回调函数来处理，scsi_softirq_done */
 	}
 }
 
@@ -108,24 +108,24 @@ void __blk_complete_request(struct request *req)
 	int ccpu, cpu, group_cpu;
 
 	BUG_ON(!q->softirq_done_fn);
-
+    /* 计算接收到中断的CPU */
 	local_irq_save(flags);
 	cpu = smp_processor_id();
 	group_cpu = blk_cpu_to_group(cpu);
 
 	/*
-	 * Select completion CPU
-	 */
+	 * Select completion CPU, 找到应该处理完成请求的CPU
+	 */ /* QUEUE_FLAG_SAME_COMP要求提交请求的CPU来做请求完成处理 */
 	if (test_bit(QUEUE_FLAG_SAME_COMP, &q->queue_flags) && req->cpu != -1)
 		ccpu = req->cpu;
 	else
 		ccpu = cpu;
 
-	if (ccpu == cpu || ccpu == group_cpu) {
+	if (ccpu == cpu || ccpu == group_cpu) { /* 处理完成请求的CPU和接收请求的CPU是同一个 */
 		struct list_head *list;
 do_local:
 		list = &__get_cpu_var(blk_cpu_done);
-		list_add_tail(&req->csd.list, list);
+		list_add_tail(&req->csd.list, list); /* 将完成请求插入CPU的队列 */
 
 		/*
 		 * if the list only contains our just added request,
@@ -135,7 +135,7 @@ do_local:
 		 */
 		if (list->next == &req->csd.list)
 			raise_softirq_irqoff(BLOCK_SOFTIRQ);
-	} else if (raise_blk_irq(ccpu, req))
+	} else if (raise_blk_irq(ccpu, req))  /* 路由中断，路由成功返回0 */
 		goto do_local;
 
 	local_irq_restore(flags);
@@ -153,10 +153,10 @@ do_local:
  *     callback through blk_queue_softirq_done().
  **/
 void blk_complete_request(struct request *req)
-{
-	if (unlikely(blk_should_fake_timeout(req->q)))
+{   /* Linux允许程序员通过注入错误的方式来模拟故障，来检查程序对故障的处理是否完善 */
+	if (unlikely(blk_should_fake_timeout(req->q)))  /* 检查注入错误 */
 		return;
-	if (!blk_mark_rq_complete(req))
+	if (!blk_mark_rq_complete(req)) /* 原子地设置REQ_ATOM_COMPLETE */
 		__blk_complete_request(req);
 }
 EXPORT_SYMBOL(blk_complete_request);

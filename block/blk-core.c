@@ -136,7 +136,7 @@ static void req_bio_endio(struct request *rq, struct bio *bio,
 	struct request_queue *q = rq->q;
 
 	if (&q->bar_rq != rq) {
-		if (error)
+		if (error)  /* 错误标识不为0，清除BIO_UPTODATE标识 */
 			clear_bit(BIO_UPTODATE, &bio->bi_flags);
 		else if (!test_bit(BIO_UPTODATE, &bio->bi_flags))
 			error = -EIO;
@@ -153,12 +153,12 @@ static void req_bio_endio(struct request *rq, struct bio *bio,
 		bio->bi_size -= nbytes;
 		bio->bi_sector += (nbytes >> 9);
 
-		if (bio_integrity(bio))
-			bio_integrity_advance(bio, nbytes);
+		if (bio_integrity(bio))  /* bio是否带有完整性载荷 */
+			bio_integrity_advance(bio, nbytes);  /* 向前推进完整性载荷的指针 */
 
-		if (bio->bi_size == 0)
+		if (bio->bi_size == 0)  /* 整个bio都处理完成，bio_endio结束这个bio */
 			bio_endio(bio, error);
-	} else {
+	} else {   /* 处理屏障请求 */
 
 		/*
 		 * Okay, this is the barrier request in progress, just
@@ -1025,7 +1025,7 @@ static inline void add_request(struct request_queue *q, struct request *req)
 	/*
 	 * elevator indicated where it wants this request to be
 	 * inserted at elevator_merge time
-	 */
+	 */ /* 0表示不蓄流，1表示蓄流 */
 	__elv_add_request(q, req, ELEVATOR_INSERT_SORT, 0);
 }
 
@@ -1945,13 +1945,13 @@ EXPORT_SYMBOL(blk_fetch_request);
  * Return:
  *     %false - this request doesn't have any more data
  *     %true  - this request has more data
- **/
+ **/ /* 更新块设备驱动层请求 */
 bool blk_update_request(struct request *req, int error, unsigned int nr_bytes)
 {
 	int total_bytes, bio_nbytes, next_idx = 0;
 	struct bio *bio;
 
-	if (!req->bio)
+	if (!req->bio) /* 该request没有任何bio，则直接返回false给调用者，告知没有更多的数据 */
 		return false;
 
 	trace_block_rq_complete(req->q, req);
@@ -1973,19 +1973,19 @@ bool blk_update_request(struct request *req, int error, unsigned int nr_bytes)
 				(unsigned long long)blk_rq_pos(req));
 	}
 
-	blk_account_io_completion(req, nr_bytes);
+	blk_account_io_completion(req, nr_bytes);  /* 修改IO统计计数 */
 
-	total_bytes = bio_nbytes = 0;
-	while ((bio = req->bio) != NULL) {
+	total_bytes = bio_nbytes = 0;  /* bio_nbytes表示已完成的字节数 */
+	while ((bio = req->bio) != NULL) {  /* 扫描request中的bio，以及bio中的每个segment */
 		int nbytes;
 
-		if (nr_bytes >= bio->bi_size) {
+		if (nr_bytes >= bio->bi_size) { /* nr_bytes大于当前bio长度，说明这个bio已经全部完成 */
 			req->bio = bio->bi_next;
 			nbytes = bio->bi_size;
-			req_bio_endio(req, bio, nbytes, error);
+			req_bio_endio(req, bio, nbytes, error); /* 针对请求已经完成的字节数作结束IO处理 */
 			next_idx = 0;
 			bio_nbytes = 0;
-		} else {
+		} else {   /* 当前bio没有全部完成 */
 			int idx = bio->bi_idx + next_idx;
 
 			if (unlikely(idx >= bio->bi_vcnt)) {
@@ -2145,7 +2145,7 @@ static bool blk_end_bidi_request(struct request *rq, int error,
 {
 	struct request_queue *q = rq->q;
 	unsigned long flags;
-
+    /* 更新双向请求，返回true表示该双向请求还有数据没有处理，直接返回给调用者 */
 	if (blk_update_bidi_request(rq, error, nr_bytes, bidi_bytes))
 		return true;
 

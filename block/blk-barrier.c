@@ -19,7 +19,7 @@
  *   block instead of explicitly doing wait_on_buffer (which is bad
  *   for performance) can be a big win. Block drivers supporting this
  *   feature should call this function and indicate so.
- *
+ *   块设备驱动调用blk_queue_ordered来报告块设备屏障IO能力
  **/
 int blk_queue_ordered(struct request_queue *q, unsigned ordered,
 		      prepare_flush_fn *prepare_flush_fn)
@@ -30,9 +30,9 @@ int blk_queue_ordered(struct request_queue *q, unsigned ordered,
 		return -EINVAL;
 	}
 
-	if (ordered != QUEUE_ORDERED_NONE &&
-	    ordered != QUEUE_ORDERED_DRAIN &&
-	    ordered != QUEUE_ORDERED_DRAIN_FLUSH &&
+	if (ordered != QUEUE_ORDERED_NONE &&     /* 表明设备不支持屏障IO */
+	    ordered != QUEUE_ORDERED_DRAIN &&    /* 先抽干屏障IO之前的所有I/O，再执行屏障IO */
+	    ordered != QUEUE_ORDERED_DRAIN_FLUSH &&  /* 先抽干屏障IO之前的所有I/O，并FLUSH到介质上，再执行屏障IO */
 	    ordered != QUEUE_ORDERED_DRAIN_FUA &&
 	    ordered != QUEUE_ORDERED_TAG &&
 	    ordered != QUEUE_ORDERED_TAG_FLUSH &&

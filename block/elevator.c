@@ -612,10 +612,10 @@ void elv_insert(struct request_queue *q, struct request *rq, int where)
 		list_add(&rq->queuelist, &q->queue_head);
 		break;
 
-	case ELEVATOR_INSERT_BACK:
+	case ELEVATOR_INSERT_BACK:   /* 屏障IO请求 */
 		rq->cmd_flags |= REQ_SOFTBARRIER;
-		elv_drain_elevator(q);
-		list_add_tail(&rq->queuelist, &q->queue_head);
+		elv_drain_elevator(q);  /* 将IO调度器队列中的所有请求抽干，送到派发队列 */
+		list_add_tail(&rq->queuelist, &q->queue_head); /* 将屏障请求加到派发队列尾部 */
 		/*
 		 * We kick the queue here for the following reasons.
 		 * - The elevator might have returned NULL previously
@@ -694,7 +694,7 @@ void elv_insert(struct request_queue *q, struct request *rq, int where)
 
 void __elv_add_request(struct request_queue *q, struct request *rq, int where,
 		       int plug)
-{
+{   /* 每个请求队列一个时刻只能有一个屏障请求 */
 	if (q->ordcolor)
 		rq->cmd_flags |= REQ_ORDERED_COLOR;
 
@@ -702,14 +702,14 @@ void __elv_add_request(struct request_queue *q, struct request *rq, int where,
 		/*
 		 * toggle ordered color
 		 */
-		if (blk_barrier_rq(rq))
-			q->ordcolor ^= 1;
+		if (blk_barrier_rq(rq)) /* 请求队列对进入的每个请求根据ordcolor进行着色 */
+			q->ordcolor ^= 1;  /* 当碰到屏障请求时，ordcolor值反转 */
 
 		/*
 		 * barriers implicitly indicate back insertion
-		 */
+		 */  /* ELEVATOR_INSERT_SORT要求在I/O调度器的调度队列进行排序。 */
 		if (where == ELEVATOR_INSERT_SORT)
-			where = ELEVATOR_INSERT_BACK;
+			where = ELEVATOR_INSERT_BACK;  /* ELEVATOR_INSERT_BACK表示指定插入在请求队列派发队列尾部 */
 
 		/*
 		 * this request is scheduling boundary, update

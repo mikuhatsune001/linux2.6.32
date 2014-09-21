@@ -1018,7 +1018,7 @@ static struct bio *__bio_map_user_iov(struct request_queue *q,
 
 			if (len <= 0)
 				break;
-			
+
 			if (bytes > len)
 				bytes = len;
 
@@ -1430,7 +1430,7 @@ void bio_check_pages_dirty(struct bio *bio)
  *   something went wrong. Noone should call bi_end_io() directly on a
  *   bio unless they own it and thus know that it has an end_io
  *   function.
- **/
+ **/ /* 在整个通用块层请求都已经处理完成时被调用以结束之 */
 void bio_endio(struct bio *bio, int error)
 {
 	if (error)
